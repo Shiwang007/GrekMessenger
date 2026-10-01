@@ -250,12 +250,44 @@ export default function Chat() {
     [conversationId]
   );
 
-  // Message Send Handler
+  // Message Send Handler with immediate optimistic conversation bumping
   const handleSendMessage = useCallback(
     ({ clientMessageId, content }) => {
-      sendMessageOptimistic({ clientMessageId, content }, handleConversationBump);
+      const nowIso = new Date().toISOString();
+
+      // Immediately bump conversation to top for sender
+      setConversations((prev) => {
+        const target = prev.find((c) => c.id === conversationId);
+        if (!target) return prev;
+        const updated = {
+          ...target,
+          updatedAt: nowIso,
+          lastMessage: { content, senderId: user?.id },
+        };
+        return [updated, ...prev.filter((c) => c.id !== conversationId)];
+      });
+
+      sendMessageOptimistic(
+        { clientMessageId, content },
+        (canonicalMessage) => {
+          setConversations((prev) => {
+            const targetId = canonicalMessage?.conversationId || conversationId;
+            const target = prev.find((c) => c.id === targetId);
+            if (!target) return prev;
+            const updated = {
+              ...target,
+              updatedAt: canonicalMessage.createdAt || nowIso,
+              lastMessage: {
+                content: canonicalMessage.content,
+                senderId: canonicalMessage.senderId,
+              },
+            };
+            return [updated, ...prev.filter((c) => c.id !== targetId)];
+          });
+        }
+      );
     },
-    [sendMessageOptimistic, handleConversationBump]
+    [conversationId, sendMessageOptimistic, user]
   );
 
   // Message Retry Handler
@@ -395,9 +427,11 @@ export default function Chat() {
   })();
 
   return (
-    <div className="h-screen h-dvh max-h-screen bg-slate-950 text-slate-100 flex flex-col w-full max-w-full overflow-hidden">
-      {/* Top Application Header */}
-      <AppHeader user={user} onLogout={logout} />
+    <div className="fixed inset-0 h-full w-full bg-slate-950 text-slate-100 flex flex-col overflow-hidden">
+      {/* Top Application Header: visible on desktop always, on mobile only when no conversation is selected */}
+      <div className={`w-full flex-shrink-0 z-30 ${conversationId ? "hidden md:block" : "block"}`}>
+        <AppHeader user={user} onLogout={logout} />
+      </div>
 
       {/* Main Container: Sidebar + Chat Area */}
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0 relative">

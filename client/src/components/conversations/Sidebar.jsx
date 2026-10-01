@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import ConversationList from "./ConversationList";
 import UserSearch from "../users/UserSearch";
 
@@ -14,6 +15,19 @@ export default function Sidebar({
   startingChat,
   onOpenCreateGroup,
 }) {
+  const displayConversations = useMemo(() => {
+    return [...conversations]
+      .map((c) => ({
+        ...c,
+        unreadCount: unreadCounts.get(c.id) ?? c.unreadCount ?? 0,
+      }))
+      .sort((a, b) => {
+        const timeA = new Date(a.updatedAt || a.createdAt || 0).getTime();
+        const timeB = new Date(b.updatedAt || b.createdAt || 0).getTime();
+        return timeB - timeA;
+      });
+  }, [conversations, unreadCounts]);
+
   return (
     <aside
       className={`w-full md:w-96 border-r border-white/10 bg-slate-900/50 p-4 flex flex-col h-full min-h-0 overflow-hidden ${
@@ -76,10 +90,7 @@ export default function Sidebar({
       <div className="flex-1 min-h-0 overflow-y-auto">
         {activeTab === "chats" ? (
           <ConversationList
-            conversations={conversations.map((c) => ({
-              ...c,
-              unreadCount: unreadCounts.get(c.id) ?? c.unreadCount ?? 0,
-            }))}
+            conversations={displayConversations}
             selectedId={conversationId}
             onSelectConversation={onSelectConversation}
             loading={loadingConversations}

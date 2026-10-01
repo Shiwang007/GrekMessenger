@@ -213,7 +213,23 @@ export async function findConversationForMember(clientOrPool, conversationId, us
               OR m.created_at > lr.created_at
               OR (m.created_at = lr.created_at AND m.id > lr.id)
             )
-        ) AS unread_count
+        ) AS unread_count,
+        (
+          SELECT m.content
+          FROM messages m
+          WHERE m.conversation_id = c.id
+            AND m.deleted_at IS NULL
+          ORDER BY m.created_at DESC, m.id DESC
+          LIMIT 1
+        ) AS last_message_content,
+        (
+          SELECT m.sender_id
+          FROM messages m
+          WHERE m.conversation_id = c.id
+            AND m.deleted_at IS NULL
+          ORDER BY m.created_at DESC, m.id DESC
+          LIMIT 1
+        ) AS last_message_sender_id
       FROM conversations c
       INNER JOIN conversation_members current_member
         ON current_member.conversation_id = c.id
@@ -265,7 +281,23 @@ export async function listConversationsForUser(clientOrPool, userId) {
               OR m.created_at > lr.created_at
               OR (m.created_at = lr.created_at AND m.id > lr.id)
             )
-        ) AS unread_count
+        ) AS unread_count,
+        (
+          SELECT m.content
+          FROM messages m
+          WHERE m.conversation_id = c.id
+            AND m.deleted_at IS NULL
+          ORDER BY m.created_at DESC, m.id DESC
+          LIMIT 1
+        ) AS last_message_content,
+        (
+          SELECT m.sender_id
+          FROM messages m
+          WHERE m.conversation_id = c.id
+            AND m.deleted_at IS NULL
+          ORDER BY m.created_at DESC, m.id DESC
+          LIMIT 1
+        ) AS last_message_sender_id
       FROM conversations c
       INNER JOIN conversation_members current_member
         ON current_member.conversation_id = c.id

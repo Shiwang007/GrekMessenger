@@ -17,6 +17,12 @@ function formatConversation(row, members = null) {
     currentUserRole: row.current_user_role,
     unreadCount: Number(row.unread_count ?? 0),
     lastReadMessageId: row.last_read_message_id ?? null,
+    lastMessage: row.last_message_content
+      ? {
+          content: row.last_message_content,
+          senderId: row.last_message_sender_id,
+        }
+      : null,
   };
 
   if (row.type === "DIRECT" && row.other_user_id) {
