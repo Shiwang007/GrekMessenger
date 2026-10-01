@@ -1,4 +1,7 @@
 import * as conversationService from "../services/conversation.service.js";
+import { notifyConversationCreated } from "../socket/notifications.js";
+import { getIO } from "../socket/index.js";
+import { conversationRoom, userRoom } from "../socket/rooms/roomNames.js";
 
 export async function createDirectConversation(req, res, next) {
   try {
@@ -6,6 +9,14 @@ export async function createDirectConversation(req, res, next) {
       currentUserId: req.user.id,
       targetUserId: req.body.userId,
     });
+
+    const io = req.app.get("io") || getIO();
+    if (io) {
+      io.in(userRoom(req.user.id)).socketsJoin(conversationRoom(conversation.id));
+    }
+
+    // Proactively notify the other participant so their sidebar immediately shows the conversation
+    notifyConversationCreated(conversation.id, req.body.userId).catch(() => {});
 
     return res.status(200).json({
       conversation,

@@ -1,4 +1,12 @@
 import * as groupService from "../services/group.service.js";
+import {
+  notifyConversationCreated,
+  notifyGroupMemberAdded,
+  notifyGroupMemberRemoved,
+  notifyGroupDeleted,
+} from "../socket/notifications.js";
+import { getIO } from "../socket/index.js";
+import { conversationRoom, userRoom } from "../socket/rooms/roomNames.js";
 
 export async function createGroup(req, res, next) {
   try {
@@ -8,6 +16,11 @@ export async function createGroup(req, res, next) {
       name,
       avatarUrl,
     });
+
+    const io = req.app.get("io") || getIO();
+    if (io) {
+      io.in(userRoom(req.user.id)).socketsJoin(conversationRoom(conversation.id));
+    }
 
     return res.status(201).json({
       conversation,
@@ -29,6 +42,14 @@ export async function updateGroup(req, res, next) {
       avatarUrl,
     });
 
+    const io = req.app.get("io") || getIO();
+    if (io) {
+      io.to(conversationRoom(conversationId)).emit("group:updated", {
+        conversationId,
+        conversation,
+      });
+    }
+
     return res.status(200).json({
       conversation,
     });
@@ -48,6 +69,12 @@ export async function addMember(req, res, next) {
       targetUserId: userId,
     });
 
+    // Notify newly added user so their sidebar receives the group conversation immediately
+    notifyConversationCreated(conversationId, userId).catch(() => {});
+
+    // Broadcast member addition to current group room members
+    notifyGroupMemberAdded(conversationId, member).catch(() => {});
+
     return res.status(201).json({
       member,
     });
@@ -65,6 +92,9 @@ export async function removeMember(req, res, next) {
       actorId: req.user.id,
       targetUserId: userId,
     });
+
+    // Notify removed user and existing room members
+    notifyGroupMemberRemoved(conversationId, userId).catch(() => {});
 
     return res.status(200).json(result);
   } catch (error) {
@@ -84,6 +114,15 @@ export async function changeMemberRole(req, res, next) {
       newRole: role,
     });
 
+    const io = req.app.get("io") || getIO();
+    if (io) {
+      io.to(conversationRoom(conversationId)).emit("group:role_changed", {
+        conversationId,
+        userId,
+        role,
+      });
+    }
+
     return res.status(200).json(result);
   } catch (error) {
     next(error);
@@ -101,6 +140,15 @@ export async function transferOwnership(req, res, next) {
       newOwnerId: userId,
     });
 
+    const io = req.app.get("io") || getIO();
+    if (io) {
+      io.to(conversationRoom(conversationId)).emit("group:ownership_transferred", {
+        conversationId,
+        previousOwnerId: req.user.id,
+        newOwnerId: userId,
+      });
+    }
+
     return res.status(200).json(result);
   } catch (error) {
     next(error);
@@ -115,6 +163,8 @@ export async function deleteGroup(req, res, next) {
       conversationId,
       userId: req.user.id,
     });
+
+    notifyGroupDeleted(conversationId).catch(() => {});
 
     return res.status(200).json(result);
   } catch (error) {

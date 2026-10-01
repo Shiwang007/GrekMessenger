@@ -114,6 +114,12 @@ For any conversation action (send, read, reaction, typing):
 
 | Event Name | Broadcast Target | Payload | Trigger |
 | :--- | :--- | :--- | :--- |
+| `conversation:created` | `user:{userId}` | `ConversationObject` | Emitted to a user when a new 1:1 chat is created with them or they are added to a group. |
+| `conversation:removed` | `user:{userId}` | `{ conversationId }` | Emitted when user is removed from a group or group is deleted. |
+| `group:member_added` | `conversation:{id}` | `{ conversationId, member }` | Emitted when a new member is added to a group. |
+| `group:member_removed` | `conversation:{id}` | `{ conversationId, userId }` | Emitted when a member is removed from a group. |
+| `group:updated` | `conversation:{id}` | `{ conversationId, conversation }` | Emitted when group name or avatar is updated. |
+| `group:deleted` | `conversation:{id}` | `{ conversationId }` | Emitted when a group is deleted by owner. |
 | `message:new` | `conversation:{id}` | `MessageObject` | Emitted when any member sends a new message. |
 | `message:edited`| `conversation:{id}` | `{ message: MessageObject }` | Emitted when message author updates content within 10 minutes. |
 | `message:deleted`| `conversation:{id}` | `{ conversationId, messageId, deletedAt }` | Emitted when message author deletes message within 10 minutes. |

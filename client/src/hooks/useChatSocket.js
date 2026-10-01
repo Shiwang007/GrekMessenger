@@ -62,7 +62,11 @@ export function useChatSocket({
       // Real-time update for conversation sidebar: bump to top with latest timestamp
       setConversations?.((prev) => {
         const target = prev.find((c) => c.id === message.conversationId);
-        if (!target) return prev;
+        if (!target) {
+          // If message arrives for a conversation not yet in sidebar, refresh conversation list
+          onReconnect?.();
+          return prev;
+        }
         const updated = {
           ...target,
           updatedAt: message.createdAt,
@@ -86,7 +90,59 @@ export function useChatSocket({
     return () => {
       socket.off("message:new", handleNewMessage);
     };
-  }, [conversationId, currentUserId, setConversations, setMessages]);
+  }, [conversationId, currentUserId, onReconnect, setConversations, setMessages]);
+
+  // Handle real-time conversation lifecycle events (new chat started, added to group, member updates)
+  useEffect(() => {
+    function handleConversationCreated(newConv) {
+      if (!newConv?.id) return;
+      setConversations?.((prev) => {
+        const exists = prev.some((c) => c.id === newConv.id);
+        if (exists) return prev;
+        return [newConv, ...prev];
+      });
+    }
+
+    function handleConversationRemoved({ conversationId: removedId }) {
+      if (!removedId) return;
+      setConversations?.((prev) => prev.filter((c) => c.id !== removedId));
+    }
+
+    function handleGroupMemberAdded({ conversationId: targetId }) {
+      if (targetId === conversationId) {
+        syncActiveConversation?.();
+      }
+    }
+
+    function handleGroupMemberRemoved({ conversationId: targetId }) {
+      if (targetId === conversationId) {
+        syncActiveConversation?.();
+      }
+    }
+
+    function handleGroupUpdated({ conversationId: targetId, conversation: updatedConv }) {
+      if (targetId === conversationId) {
+        syncActiveConversation?.();
+      }
+      setConversations?.((prev) =>
+        prev.map((c) => (c.id === targetId ? { ...c, ...updatedConv } : c))
+      );
+    }
+
+    socket.on("conversation:created", handleConversationCreated);
+    socket.on("conversation:removed", handleConversationRemoved);
+    socket.on("group:member_added", handleGroupMemberAdded);
+    socket.on("group:member_removed", handleGroupMemberRemoved);
+    socket.on("group:updated", handleGroupUpdated);
+
+    return () => {
+      socket.off("conversation:created", handleConversationCreated);
+      socket.off("conversation:removed", handleConversationRemoved);
+      socket.off("group:member_added", handleGroupMemberAdded);
+      socket.off("group:member_removed", handleGroupMemberRemoved);
+      socket.off("group:updated", handleGroupUpdated);
+    };
+  }, [conversationId, setConversations, syncActiveConversation]);
 
   // Handle unread count updates
   useEffect(() => {

@@ -9,6 +9,7 @@ const PORT = process.env.PORT || 5000;
 
 const httpServer = http.createServer(app);
 const io = initSocket(httpServer);
+app.set("io", io);
 
 httpServer.listen(PORT, async () => {
   logger.info(`Server running on http://localhost:${PORT}`);

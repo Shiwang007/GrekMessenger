@@ -8,19 +8,41 @@ import { registerReceiptHandlers } from "./handlers/receiptHandlers.js";
 import { registerEditDeleteHandlers } from "./handlers/editDeleteHandlers.js";
 import { registerReactionHandlers } from "./handlers/reactionHandlers.js";
 
+import { pool } from "../config/database.js";
+import { logger } from "../utils/logger.js";
 import { addSocket, removeSocket } from "../presence/presenceManager.js";
 import { markLastSeen, broadcastPresence } from "../presence/presenceService.js";
 import { cleanupUserTyping } from "./typing/typingManager.js";
 import { conversationRoom, userRoom } from "./rooms/roomNames.js";
 
+let ioInstance = null;
+
+export function getIO() {
+  return ioInstance;
+}
+
 export function registerSocketHandlers(io) {
+  ioInstance = io;
   io.use(socketAuth);
 
-  io.on("connection", (socket) => {
+  io.on("connection", async (socket) => {
     const userId = socket.user?.id;
 
     if (userId) {
       socket.join(userRoom(userId));
+
+      // Auto-join socket to all active conversation rooms for real-time delivery
+      try {
+        const { rows } = await pool.query(
+          "SELECT conversation_id FROM conversation_members WHERE user_id = $1 AND removed_at IS NULL",
+          [userId]
+        );
+        for (const row of rows) {
+          socket.join(conversationRoom(row.conversation_id));
+        }
+      } catch (err) {
+        logger.error(`Failed to auto-join conversation rooms for user ${userId}:`, err);
+      }
 
       const { becameOnline } = addSocket(userId, socket.id);
       if (becameOnline) {
