@@ -79,19 +79,20 @@ To maintain clean separation of concerns and high testability, the frontend sepa
 
 ```mermaid
 sequenceDiagram
-    participant User
+    autonumber
+    actor User
     participant Composer as MessageComposer
     participant SocketHook as useChatSocket
     participant Gateway as Server Gateway
 
-    User->>Composer: Types character
-    Composer->>Gateway: emit("typing:start", { conversationId })
-    Gateway-->>SocketHook: emit("typing:update", { userId, typing: true })
-    SocketHook-->>User: Renders typing indicator in Header & Banner
-    
+    User->>Composer: Types message draft
+    Composer->>Gateway: emit typing:start (conversationId)
+    Gateway-->>SocketHook: broadcast typing:update (userId, typing=true)
+    SocketHook-->>User: Renders live typing indicator in Header and Banner
+
     User->>Composer: Submits message
-    Composer->>Gateway: emit("message:send", { conversationId, content, clientMessageId })
-    Gateway-->>SocketHook: emit("message:new", message)
+    Composer->>Gateway: emit message:send (content, clientMessageId)
+    Gateway-->>SocketHook: broadcast message:new (message)
     SocketHook-->>User: Replaces optimistic bubble with confirmed message
 ```
 

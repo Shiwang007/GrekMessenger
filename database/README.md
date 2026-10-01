@@ -8,19 +8,63 @@ PostgreSQL schema design, relationships, and indexing strategies optimized for h
 
 ```mermaid
 erDiagram
-    users ||--o{ refresh_tokens : "has"
-    users ||--o{ conversations : "creates"
-    users ||--o{ conversation_members : "participates"
-    users ||--o{ messages : "sends"
-    users ||--o{ message_reactions : "reacts"
-    users ||--o{ message_receipts : "receives"
-    
-    conversations ||--o{ conversation_members : "contains"
-    conversations ||--o{ messages : "holds"
-    
-    messages ||--o{ message_reactions : "receives"
-    messages ||--o{ message_receipts : "tracked_by"
-    messages ||--o{ conversation_members : "read_cursor"
+    USERS ||--o{ REFRESH_TOKENS : has
+    USERS ||--o{ CONVERSATIONS : creates
+    USERS ||--o{ CONVERSATION_MEMBERS : participates
+    USERS ||--o{ MESSAGES : sends
+    USERS ||--o{ MESSAGE_REACTIONS : reacts
+    USERS ||--o{ MESSAGE_RECEIPTS : receives
+    CONVERSATIONS ||--o{ CONVERSATION_MEMBERS : contains
+    CONVERSATIONS ||--o{ MESSAGES : holds
+    MESSAGES ||--o{ MESSAGE_REACTIONS : receives
+    MESSAGES ||--o{ MESSAGE_RECEIPTS : tracks
+    MESSAGES ||--o{ CONVERSATION_MEMBERS : tracks_read
+
+    USERS {
+        uuid id PK
+        string email
+        string name
+        timestamptz last_seen_at
+    }
+    REFRESH_TOKENS {
+        uuid id PK
+        uuid user_id FK
+        string token_hash
+        timestamptz expires_at
+    }
+    CONVERSATIONS {
+        uuid id PK
+        string type
+        string name
+        string direct_key
+        uuid created_by FK
+    }
+    CONVERSATION_MEMBERS {
+        uuid conversation_id PK,FK
+        uuid user_id PK,FK
+        string role
+        uuid last_read_message_id FK
+    }
+    MESSAGES {
+        uuid id PK
+        uuid conversation_id FK
+        uuid sender_id FK
+        string client_message_id
+        text content
+        timestamptz created_at
+        timestamptz deleted_at
+    }
+    MESSAGE_REACTIONS {
+        uuid message_id PK,FK
+        uuid user_id PK,FK
+        string emoji
+    }
+    MESSAGE_RECEIPTS {
+        uuid message_id PK,FK
+        uuid user_id PK,FK
+        timestamptz delivered_at
+        timestamptz read_at
+    }
 ```
 
 ---
