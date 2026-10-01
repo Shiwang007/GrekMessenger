@@ -10,9 +10,18 @@ import messageRoutes from "./routes/message.routes.js";
 
 const app = express();
 
+const allowedOrigins = process.env.CLIENT_URL
+  ? process.env.CLIENT_URL.split(",").map((s) => s.trim())
+  : ["http://localhost:5173"];
+
 app.use(
   cors({
-    origin: process.env.CLIENT_URL,
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin) || allowedOrigins.includes("*") || process.env.NODE_ENV !== "production") {
+        return callback(null, true);
+      }
+      return callback(null, allowedOrigins.includes(origin));
+    },
     credentials: true,
   })
 );

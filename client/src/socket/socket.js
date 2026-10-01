@@ -4,7 +4,7 @@ const SOCKET_URL =
   import.meta.env.VITE_SOCKET_URL ||
   import.meta.env.VITE_SERVER_URL ||
   import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, "") ||
-  "http://localhost:5000";
+  "https://grek-messenger-api.onrender.com";
 
 export const socket = io(SOCKET_URL, {
   autoConnect: false,

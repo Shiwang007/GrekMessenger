@@ -31,8 +31,11 @@ function processQueue(error, token = null) {
   failedQueue = [];
 }
 
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL || "https://grek-messenger-api.onrender.com/api";
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
+  baseURL: API_BASE_URL,
   withCredentials: true,
 });
 
@@ -75,7 +78,7 @@ api.interceptors.response.use(
 
       try {
         const response = await axios.post(
-          `${import.meta.env.VITE_API_URL}/auth/refresh`,
+          `${API_BASE_URL}/auth/refresh`,
           {},
           { withCredentials: true }
         );
