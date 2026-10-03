@@ -77,6 +77,7 @@ export default function Chat() {
   }
 
   const lastSentReadIdRef = useRef(new Map());
+  const isFetchingConversationsRef = useRef(false);
 
   // 1. Message History & Optimistic Transport Hook
   const {
@@ -96,6 +97,9 @@ export default function Chat() {
 
   // Fetch conversation list
   const fetchConversations = useCallback(async () => {
+    if (isFetchingConversationsRef.current) return;
+    isFetchingConversationsRef.current = true;
+
     try {
       setLoadingConversations(true);
       setConversationsError("");
@@ -119,6 +123,7 @@ export default function Chat() {
       setConversationsError(getErrorMessage(err, "Failed to load chats."));
     } finally {
       setLoadingConversations(false);
+      isFetchingConversationsRef.current = false;
     }
   }, [setPresenceSnapshot]);
 

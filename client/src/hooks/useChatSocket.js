@@ -15,10 +15,15 @@ export function useChatSocket({
 }) {
   const [typingUserIds, setTypingUserIds] = useState(new Set());
 
-  // Refetch conversations when socket reconnects
+  // Refetch conversations only on genuine socket reconnections (not initial connection)
   useEffect(() => {
+    const hasConnectedRef = { current: socket.connected };
+
     function handleReconnect() {
-      onReconnect?.();
+      if (hasConnectedRef.current) {
+        onReconnect?.();
+      }
+      hasConnectedRef.current = true;
     }
 
     socket.on("connect", handleReconnect);
