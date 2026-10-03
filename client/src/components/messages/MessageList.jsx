@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useLayoutEffect, useRef, useCallback } from "react";
 import MessageItem from "./MessageItem";
 import Spinner from "../common/Spinner";
 import { ChatIcon } from "../common/Icons";
@@ -20,7 +20,8 @@ export default function MessageList({
   const containerRef = useRef(null);
   const bottomSentinelRef = useRef(null);
   const isInitialLoadRef = useRef(true);
-  const prevMessagesLengthRef = useRef(messages.length);
+  const lastMessageIdRef = useRef(null);
+  const prependedScrollRef = useRef(null);
   const messageRefsRef = useRef(new Map());
   const observerRef = useRef(null);
 
@@ -79,48 +80,72 @@ export default function MessageList({
     }
   }, []);
 
+  // Reset initial load and message tracker when switching conversation or clearing
+  useEffect(() => {
+    if (messages.length === 0) {
+      isInitialLoadRef.current = true;
+      lastMessageIdRef.current = null;
+      prependedScrollRef.current = null;
+    }
+  }, [messages.length]);
+
   // Scroll to bottom on initial load
   useEffect(() => {
     if (!loading && messages.length > 0 && isInitialLoadRef.current) {
       isInitialLoadRef.current = false;
+      lastMessageIdRef.current = messages[messages.length - 1]?.id;
       bottomSentinelRef.current?.scrollIntoView({ behavior: "instant" });
     }
   }, [loading, messages]);
 
-  // When a new message is appended (sent by user or received)
+  // When a genuine NEW message is appended to the bottom
   useEffect(() => {
-    if (messages.length > prevMessagesLengthRef.current) {
-      // If we didn't just prepend older messages, scroll down
+    if (isInitialLoadRef.current) return;
+
+    const currentLastMessage = messages[messages.length - 1];
+    const prevLastId = lastMessageIdRef.current;
+
+    // Only scroll if the bottom-most message actually changed (new incoming or sent message)
+    if (currentLastMessage && prevLastId && currentLastMessage.id !== prevLastId) {
       const container = containerRef.current;
       if (container) {
         const isNearBottom =
           container.scrollHeight - container.scrollTop - container.clientHeight < 180;
-        const lastMessage = messages[messages.length - 1];
-        const isMyMessage = lastMessage?.senderId === currentUserId;
+        const isMyMessage = currentLastMessage.senderId === currentUserId;
 
         if (isNearBottom || isMyMessage) {
           bottomSentinelRef.current?.scrollIntoView({ behavior: "smooth" });
         }
       }
     }
-    prevMessagesLengthRef.current = messages.length;
+
+    if (currentLastMessage) {
+      lastMessageIdRef.current = currentLastMessage.id;
+    }
   }, [messages, currentUserId]);
+
+  // Retain exact scroll position after prepending older messages before browser paint
+  useLayoutEffect(() => {
+    if (prependedScrollRef.current && containerRef.current) {
+      const { prevHeight, prevTop, firstId } = prependedScrollRef.current;
+      if (messages[0]?.id !== firstId) {
+        const newHeight = containerRef.current.scrollHeight;
+        containerRef.current.scrollTop = prevTop + (newHeight - prevHeight);
+      }
+      prependedScrollRef.current = null;
+    }
+  }, [messages]);
 
   // Handle upward infinite scroll with scroll position preservation
   function handleScroll(e) {
     const container = e.currentTarget;
     if (container.scrollTop <= 80 && hasMore && !loadingOlder && !loading) {
-      const prevHeight = container.scrollHeight;
-      const prevTop = container.scrollTop;
-
-      onLoadOlder().then(() => {
-        requestAnimationFrame(() => {
-          if (containerRef.current) {
-            const newHeight = containerRef.current.scrollHeight;
-            containerRef.current.scrollTop = prevTop + (newHeight - prevHeight);
-          }
-        });
-      });
+      prependedScrollRef.current = {
+        prevHeight: container.scrollHeight,
+        prevTop: container.scrollTop,
+        firstId: messages[0]?.id,
+      };
+      onLoadOlder();
     }
   }
 
